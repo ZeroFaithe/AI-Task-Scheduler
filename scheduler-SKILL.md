@@ -26,7 +26,11 @@ Skip any task with `status: completed`.
 ### Day capacity
 Each day has a maximum of `weekday_hours[day_of_week]` study hours. Slots must fall within `earliest_start` and `latest_end`.
 
-For **today**: the first slot may begin no earlier than the current time rounded up to the next 15-minute mark (e.g., if it is 14:07 now, first slot starts at 14:15).
+> **Fix 1 — Zero-hour days are fully blocked.**
+> If `weekday_hours[day_of_week]` is **0**, that day has no available capacity. **Never place any task slot on that day.** Skip it entirely when walking forward through the calendar.
+
+> **Fix 3 — Remaining time today, not total time.**
+> For **today** only: do not count hours that have already passed. Calculate available study time as the overlap between `[current_time_rounded_up_to_15min, latest_end]` and the study window, not the full window. Round the start of the first slot up to the next 15-minute mark (e.g., if it is 14:07 now, the first slot on today's calendar starts at 14:15). If the remaining window is 0 hours (e.g., it is already past `latest_end`), treat today as a zero-hour day and skip it.
 
 ### Slot granularity
 All slot durations are multiples of 15 minutes (0.25 h). Slot times are in `HH:MM` 24-hour format.
@@ -50,7 +54,13 @@ When at risk:
 - Write a clear `at_risk_reason`:
   - For overdue: "Past due since YYYY-MM-DD. Scheduled as soon as possible."
   - For shortfall: "Needs Xh but only Yh of free time exists before the YYYY-MM-DD deadline; Zh left unscheduled."
-- **Never** hide an at-risk situation or push the task past its deadline to make numbers work.
+
+> **Fix 2 — Impossible deadlines must be surfaced, never hidden.**
+> If the total available hours across all non-blocked days between today and the deadline (inclusive) are less than `est_hours`, the task **cannot be completed on time**. In that case:
+> 1. Schedule as many hours as the calendar allows before (and including) the deadline.
+> 2. Set `shortfall_hours` = `est_hours` − hours actually scheduled.
+> 3. Write an `at_risk_reason` following the shortfall format above.
+> 4. **Do not schedule any slot for this task on a day after its deadline.** The shortfall stays unscheduled. Never extend the task past its deadline to make the math balance.
 
 ---
 
@@ -70,90 +80,103 @@ When at risk:
 
 ## Output
 
-Present the schedule as a **dark-mode PDF-ready document**. The document has two parts:
+> **Producing the PDF is mandatory. Displaying the schedule as text in chat is NOT acceptable and counts as a failure of this step. If the PDF cannot be written, say so explicitly — do not silently skip it.**
+
+The Scheduler must:
+1. Build the full HTML document (spec below).
+2. Save the HTML to the project directory as `study_schedule.html` (temporary).
+3. Convert it to `study_schedule.pdf` in the same directory using a headless browser command.
+4. Confirm to the Orchestrator: **"`study_schedule.pdf` saved at `<absolute path>`."**
+5. Delete `study_schedule.html` — only the PDF is kept.
 
 ---
 
-### Part 1: Monthly Calendar View
+### Conversion command (Windows)
 
-Render a month-per-page calendar grid (Sun–Sat columns). For each day that has at least one study session:
-- Show the task title and deadline on that day's cell
-- Prefix each entry with a priority color label: `[HIGH]`, `[MED]`, or `[LOW]`
-- Mark completed tasks with `[✓]`
-- Highlight today's date cell clearly (e.g., "Today")
+Try the commands in order until one succeeds:
 
-**Calendar formatting rules (dark-mode, PDF-ready):**
-- Background: deep dark navy (`#0d1117` equivalent tone in description)
-- Grid lines: subtle dark borders
-- Priority labels:
-  - `[HIGH]` — red (`#ef4444`)
-  - `[MED]` — amber/orange (`#f59e0b`)
-  - `[LOW]` — green (`#22c55e`)
-  - `[✓]` (Completed) — muted gray
-- Text: light/white on dark background
-- Subject codes rendered as small colored badge-style tags next to task titles
-
-Since this output is presented as text/markdown (Claude cannot generate actual PDFs), format the calendar as a clearly structured ASCII/Unicode table. Label the document header:
-> 📅 **Study Calendar — [Month Year]** *(Dark Mode — Print to PDF)*
-
-If the schedule spans multiple months, produce one grid per month.
-
----
-
-### Part 2: Task List by Priority
-
-Below the calendar, produce a **Task List by Priority** table grouped into four sections:
-
-#### 🔴 High Priority
-| # | Task | Subject | Deadline | Priority | Status |
-|---|---|---|---|---|---|
-
-#### 🟡 Medium Priority
-| # | Task | Subject | Deadline | Priority | Status |
-|---|---|---|---|---|---|
-
-#### 🟢 Low Priority
-| # | Task | Subject | Deadline | Priority | Status |
-|---|---|---|---|---|---|
-
-#### ✅ Completed
-| # | Task | Subject | Deadline | Priority | Status |
-|---|---|---|---|---|---|
-
-**Column rules:**
-- **#** — sequential row number (global, not per-section)
-- **Task** — task `title`
-- **Subject** — `subject_code` rendered as a badge/tag label
-- **Deadline** — formatted as `MMM D, YYYY` (e.g., `Oct 25, 2026`)
-- **Priority** — `HIGH`, `MEDIUM`, or `LOW`
-- **Status** — `Pending`, `In Progress`, `Today` (if deadline is today), `Completed`, or `Overdue`
-- **No Actions column.** This is a static document; interactive actions are omitted.
-
-Include a legend above or below the table:
-```
-🔴 HIGH  Priority — Critical tasks that need immediate attention.
-🟡 MEDIUM Priority — Important tasks with moderate urgency.
-🟢 LOW   Priority — Nice to have / flexible deadlines.
-✅ COMPLETED — Well done! Keep it up.
+**Option 1 — Microsoft Edge (default on Windows 10/11):**
+```powershell
+& "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe" `
+  --headless=new --no-pdf-header-footer `
+  --print-to-pdf="<absolute_path>\study_schedule.pdf" `
+  "file:///<absolute_path>/study_schedule.html"
 ```
 
+**Option 2 — Google Chrome:**
+```powershell
+& "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" `
+  --headless=new --no-pdf-header-footer `
+  --print-to-pdf="<absolute_path>\study_schedule.pdf" `
+  "file:///<absolute_path>/study_schedule.html"
+```
+
+**Option 3 — wkhtmltopdf (if installed):**
+```powershell
+wkhtmltopdf "<absolute_path>\study_schedule.html" "<absolute_path>\study_schedule.pdf"
+```
+
+If all options fail, report the exact error and stop — do not output a text-based fallback.
+
 ---
 
-### Part 3: At-Risk Tasks
-List every at-risk task with its reason and shortfall. If none: "No tasks at risk."
+### HTML document spec
+
+The HTML file must be a **single self-contained file** (no external dependencies). Use `<style>` blocks for all CSS. Structure:
+
+#### Global styles
+- `background: #0d1117`, `color: #e6edf3`, font `'Segoe UI', system-ui, sans-serif`
+- Page size hint: `@page { size: A4 landscape; margin: 12mm; }`
+- Print-safe: all colors declared with `-webkit-print-color-adjust: exact; print-color-adjust: exact`
+
+#### Document header
+```html
+<header>
+  <h1>📅 Study Schedule — [Student Name or "My Schedule"]</h1>
+  <p>Generated: [YYYY-MM-DD HH:MM] &nbsp;|&nbsp; Period: [start date] – [end date]</p>
+</header>
+```
+
+#### Part 1 — Monthly calendar grid
+- One `<section>` per month, headed `<h2>Month Year</h2>`
+- A 7-column CSS Grid (Sun–Sat)
+- Day cells that have no slots: dim background (`#161b22`), day number only
+- Day cells with slots: slightly lighter background (`#1c2128`), day number bold, then per-task entries:
+  - A colored chip/badge showing priority: HIGH = `#ef4444`, MED = `#f59e0b`, LOW = `#22c55e`, DONE = `#6b7280`
+  - Task title (truncated if needed) and subject code badge
+- Today's cell: border `2px solid #58a6ff`, header text "Today"
+- At-risk tasks: orange left border on their chips
+
+#### Part 2 — Task list by priority
+Four `<section>` blocks (High / Medium / Low / Completed), each with an `<h3>` heading and a `<table>`:
+
+| # | Task | Subject | Type | Hours | Deadline | Status |
+|---|------|---------|------|-------|----------|--------|
+
+Table styles: dark header (`#161b22`), alternating row shading, colored status pills.
+
+#### Part 3 — At-risk tasks
+`<section id="at-risk">` with a warning banner (`background: #2d1b00`, `border-left: 4px solid #f59e0b`). List each at-risk task with `shortfall_hours` and `at_risk_reason`. If none: "✅ No tasks at risk."
+
+#### Part 4 — Legend footer
+```
+🔴 HIGH — Critical   🟡 MED — Important   🟢 LOW — Flexible   ✅ DONE — Completed   ⚠ AT RISK — Shortfall recorded
+```
 
 ---
 
-### Part 4: Handoff Note
-End with: "✅ Scheduling complete. Ready to hand off to the **Reviewer**."
+### Part 5: Handoff Note
+After confirming the PDF was saved, end with: "✅ Scheduling complete. PDF saved. Ready to hand off to the **Reviewer**."
 
 ---
 
 ## Rules
 
 - Only write to the schedule — never change task fields (`subject_code`, `title`, `task`, `description`, `est_hours`, `deadline`).
-- Never move an at-risk task past its deadline to make numbers balance.
+- **Never place a slot on a day where `weekday_hours[day_of_week]` is 0.** (Fix 1)
+- **Never schedule a slot after a task's deadline.** If the deadline cannot be met, record a shortfall and leave remaining hours unscheduled. (Fix 2)
+- **Today's available hours start from the current clock time** (rounded up to the nearest 15 min), not from `earliest_start`. If the study window has already closed for today, treat today as zero-hour and skip it. (Fix 3)
 - Completed tasks are not scheduled.
-- Do not include an Actions column — the output is a static, print-ready document.
-- If the Reviewer sends back conflicts, re-examine the placement logic and redo the affected slots.
+- **The final deliverable is a PDF file. No other format is acceptable.**
+- If the Reviewer sends back conflicts, re-examine the placement logic, redo the affected slots, and regenerate the PDF.
 - If the problem is in the inputs (e.g., est_hours are incorrect), say so clearly rather than pretending the schedule is fixed.

@@ -24,7 +24,11 @@ For each day:
 - The total study hours across all slots must not exceed `weekday_hours[day_of_week]`
 - Every slot must start at or after `earliest_start` and end at or before `latest_end`
 
+> **Fix 4 — Zero-hour days must be slot-free.**
+> If `weekday_hours[day_of_week]` is **0** for a given day, any slot placed on that day is a violation — even a single minute. Check explicitly: if the schedule contains a slot on a day with 0 available hours, **fail this check** regardless of the slot's duration.
+
 **Issue format**: `[daily_hours] task_id: Slot on YYYY-MM-DD exceeds available hours / falls outside the study window.`
+`[zero_hour_day] task_id: Slot on YYYY-MM-DD (a day with 0 available hours) must not be scheduled.`
 
 ### Check 3 — Every Deadline Respected
 For each non-overdue task, all its slots must be on or before its deadline date.
@@ -48,8 +52,11 @@ For each task, the sum of all slot hours must equal `est_hours` (unless the task
 | Verdict | Condition |
 |---|---|
 | **pass** | All 5 checks pass, no at-risk tasks |
-| **pass_with_warnings** | All 5 checks pass, but at-risk tasks exist |
+| **pass_with_warnings** | All 5 checks pass, but at-risk tasks exist (including tasks with an unavoidable deadline shortfall correctly recorded by the Scheduler) |
 | **fail** | One or more checks failed |
+
+> **Fix 5 — Unavoidable shortfalls are warnings, not failures.**
+> If the Scheduler correctly followed all availability rules (zero-hour days skipped, today's remaining window used, no slots past the deadline) but still could not fit all `est_hours` before a deadline — and recorded a `shortfall_hours` and `at_risk_reason` — that situation is **not a scheduling error**. It reflects insufficient real-world time. Accept it as a `pass_with_warnings` verdict and surface the shortfall to the student as a warning. **Do not loop back to the Scheduler to request a revision** for an unavoidable shortfall.
 
 - **If fail**: Report all issues clearly to the Orchestrator for revision. **Do not patch the schedule yourself.** Do not produce final outputs.
 - **If pass or pass_with_warnings**: Present the full review result to the student. State at-risk warnings plainly — they do not block approval but must not be hidden.
@@ -117,7 +124,7 @@ The student must explicitly say something like "approve", "looks good", "confirm
 - The student has not yet seen the schedule
 - The student has not explicitly approved
 
-On approval, produce both final outputs:
+On approval, produce the following outputs:
 
 ### Output 1: `implementation.md`
 Write a markdown document with these sections:
@@ -127,11 +134,14 @@ Write a markdown document with these sections:
 4. **Risks** — at-risk tasks and tight tasks (last slot on the deadline day), with recommended actions
 5. **Change log** — all review-phase edits made (old → new), or "No changes made."
 
-### Output 2: Study Calendar Summary
-Produce a clean text-based calendar overview (since HTML cannot be rendered here):
-- A monthly grid view showing which days have study sessions and for which subjects
-- Color indicators expressed as text labels: `[HIGH]` in red, `[MED]` in orange, `[LOW]` in green
-- A task list by priority below the calendar
+### Output 2: `study_schedule.pdf`
+
+> **Delivering the PDF is mandatory. If the file does not exist or cannot be confirmed, say so explicitly — do not substitute a text summary.**
+
+The Scheduler already saved `study_schedule.pdf` during its run. The Reviewer must:
+1. Confirm the file exists at the path the Scheduler reported.
+2. Inform the student: **"🎉 Your study schedule PDF is ready: `<absolute path to study_schedule.pdf>`"**
+3. If the file is missing (e.g., the Scheduler failed to write it), report this clearly and ask the Orchestrator to rerun the Scheduler so it can regenerate the PDF before finalising.
 
 Confirm both outputs are complete, then say: "🎉 Plan approved and finalized."
 
@@ -139,8 +149,10 @@ Confirm both outputs are complete, then say: "🎉 Plan approved and finalized."
 
 ## Rules
 
-- **Never** produce `implementation.md` or the calendar before explicit student approval.
+- **Never** produce `implementation.md` or deliver the PDF before explicit student approval.
 - **Never** patch the schedule directly — send issues back to the Orchestrator for the Scheduler to fix.
 - **Never** edit task fields except through the validated edit process in Phase 2, and only on the student's explicit request.
 - At-risk warnings are **not** issues — present them to the student but do not loop back for revision because of them.
+- **An unavoidable deadline shortfall (correctly recorded by the Scheduler) must not trigger a revision loop.** It is a warning. Only fail the schedule when a check violation is present (e.g., slot on a zero-hour day, slot past the deadline, overlapping slots, wrong subject). (Fix 5)
+- **The final student deliverable is `study_schedule.pdf`. Never substitute a text-based calendar summary in place of the PDF.**
 - Do not claim success for a step you did not check.
