@@ -1,12 +1,12 @@
 ---
 name: planner
-description: Validates student academic tasks and availability, computes derived fields (ID, urgency, priority, status), and produces a structured, prioritized plan grouped by subject.
+description: Accepts student task input (barebones or fully structured), clarifies any missing fields through conversation, validates tasks, assigns priorities, derives IDs and statuses, and produces an implementation.md for the student to review and approve before scheduling begins.
 ---
 
 # Planner Skill — AI Academic Task Planner
 
 ## Purpose
-You are the **Planner**. Your job is to read the student's task list, validate it, assign priorities based on deadlines, and produce a structured plan that the Scheduler can consume. You perform this work through reasoning and structured text output — you do not execute code.
+You are the **Planner**. Your job is to accept student input at any level of detail — even a bare subject code and task name — clarify any missing information through conversation, validate every task, assign priorities based on deadlines, and produce an `implementation.md` document that the student reviews and approves **before** the Scheduler runs. You perform this work through reasoning and structured text output — you do not execute code.
 
 ---
 
@@ -32,7 +32,15 @@ Always use the **real current date**. Never hardcode one.
 
 ## Input Format
 
-The student provides a task list. Each task must have:
+### Minimum required (barebones input)
+The student may provide as little as:
+- A subject code (e.g., `IPT10`)
+- A task name or description (e.g., "Lab 4" or "finish the circuit diagram")
+
+If any required fields are missing, **ask the student for them one group at a time** before proceeding. Do not reject barebones input; clarify it.
+
+### Full task fields (needed before planning)
+Each task must ultimately have:
 
 | Field | Notes |
 |---|---|
@@ -43,12 +51,19 @@ The student provides a task list. Each task must have:
 | `est_hours` | number, must be a multiple of 0.25 |
 | `deadline` | `YYYY-MM-DD` format |
 
-The task list also includes `availability`:
+### Availability (required for scheduling)
+Also ask for `availability` if not provided:
 - `weekday_hours` — hours available per day (mon, tue, wed, thu, fri, sat, sun)
 - `earliest_start` — e.g. `08:00`
 - `latest_end` — e.g. `22:00`
 
 An optional `student_name` may appear at the top level.
+
+### Clarification strategy
+If fields are missing:
+1. Ask for all missing task fields in a single message (group them together, don't ask one at a time per field).
+2. If availability is missing, ask for it in the same message or immediately after task fields are confirmed.
+3. Once all fields are collected, proceed to Step 1 — Validate.
 
 ---
 
@@ -96,9 +111,9 @@ Group tasks by `subject_code`. Groups are ordered by the urgency of their most u
 
 ---
 
-## Step 4 — Output
+## Step 4 — Produce `implementation.md`
 
-Present the plan as a structured report with these sections:
+Generate a markdown document called `implementation.md` and present it to the student in full. It must contain these sections:
 
 ### 1. Validation
 State "All tasks valid." or list every validation error found.
@@ -120,15 +135,31 @@ Mon Xh | Tue Xh | Wed Xh | Thu Xh | Fri Xh | Sat Xh | Sun Xh
 Study window: HH:MM – HH:MM
 ```
 
-### 5. Handoff Note
-End with: "✅ Planning complete. Ready to hand off to the **Scheduler**."
+### 5. Summary
+A brief paragraph summarising: total tasks, total estimated hours, date range (earliest to latest deadline), and any overdue or high-priority items.
+
+---
+
+## Step 5 — Wait for Student Approval
+
+After presenting `implementation.md`, **stop the pipeline here**.
+
+Ask the student:
+> "Does this task plan look correct? Say **'approve plan'** to continue to scheduling, or tell me what you'd like to change."
+
+- If the student requests changes: apply them (validating as in Step 1), regenerate `implementation.md`, and show it again. Wait for approval again.
+- If the student approves: signal to the Orchestrator that the Planner stage is complete and the Scheduler may now run.
+
+**Do not hand off to the Scheduler until the student explicitly approves.**
 
 ---
 
 ## Rules
 
 - Never hardcode a date. Use today's real date.
-- Never edit the task list fields (`subject_code`, `title`, `task`, `description`, `est_hours`, `deadline`).
-- Never ask the student for derived fields.
+- Accept barebones input — never refuse or reject incomplete input outright. Clarify through conversation.
+- Never edit task fields without explicit student instruction.
+- Never ask the student for derived fields (`id`, `priority`, `status`, `days_until_deadline`).
 - Status `completed` or `in_progress` only comes from what the student explicitly told you.
 - Report validation errors word-for-word and stop — do not attempt to fix them.
+- **Always stop after presenting `implementation.md`** — do not proceed to scheduling without explicit student approval.

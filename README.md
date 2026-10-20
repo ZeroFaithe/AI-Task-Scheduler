@@ -1,6 +1,6 @@
 # AI Academic Task Planner — Base Claude Skills
 
-These are standalone skill files for use with **base Claude** (claude.ai) via the file upload feature. They are reformatted versions of the original Claude Code skills, translated into pure natural-language instructions that Claude can follow without running any code or accessing the file system.
+These are standalone skill files for use with **base Claude** (claude.ai) via the file upload feature. Written as pure natural-language instructions that Claude follows through reasoning — no code execution or file system access required.
 
 ---
 
@@ -8,10 +8,10 @@ These are standalone skill files for use with **base Claude** (claude.ai) via th
 
 | File | Role |
 |---|---|
-| `orchestrator-SKILL.md` | Coordinates the full pipeline: Planner → Scheduler → Reviewer |
-| `planner-SKILL.md` | Validates tasks, assigns priorities, groups and sorts by urgency |
-| `scheduler-SKILL.md` | Places tasks into concrete dated time slots, flags at-risk tasks |
-| `reviewer-SKILL.md` | Checks the schedule, handles edits, generates final outputs on approval |
+| `orchestrator-SKILL.md` | Coordinates the full pipeline: Planner → (approval gate) → Scheduler → Reviewer |
+| `planner-SKILL.md` | Clarifies missing fields, validates tasks, assigns priorities, produces `implementation.md` for student approval |
+| `scheduler-SKILL.md` | Places tasks into time slots and produces a **dark-mode PDF-ready** calendar + priority task list |
+| `reviewer-SKILL.md` | Runs 5 quality checks on the schedule, handles review edits, generates final outputs on approval |
 
 ---
 
@@ -20,25 +20,37 @@ These are standalone skill files for use with **base Claude** (claude.ai) via th
 ### Option A — Full pipeline (recommended)
 
 1. Go to [claude.ai](https://claude.ai) and start a new conversation.
-2. Upload **`orchestrator-SKILL.md`** using the file/attachment button.
-3. Paste your task list (see format below) into the chat.
+2. Upload **all four skill files** using the file/attachment button.
+3. Provide your input — even just a subject code and task name is enough to start.
 4. Say: **"Run the planner pipeline."**
 
-Claude will step through Planner → Scheduler → Reviewer automatically, ask for your approval, and produce the final study plan.
+Claude will:
+1. Ask you to clarify any missing fields (task type, estimated hours, deadline, availability)
+2. Show you an `implementation.md` plan and **wait for your approval** before scheduling
+3. Once approved, build the schedule and present a **dark-mode PDF-ready calendar** with a task list by priority
+4. Run the Reviewer checks and ask for your final approval
 
 ### Option B — Individual skills
 
 Upload only the skill you need if you want to run a single stage:
 
-- **Planner only** — upload `planner-SKILL.md`, paste your task list
-- **Scheduler only** — upload `scheduler-SKILL.md`, paste the Planner's output
+- **Planner only** — upload `planner-SKILL.md`, paste your task list (or just give a subject code + task)
+- **Scheduler only** — upload `scheduler-SKILL.md`, paste the approved Planner output
 - **Reviewer only** — upload `reviewer-SKILL.md`, paste the Scheduler's output
 
 ---
 
-## Task List Format
+## Task Input Format
 
-Provide your tasks as a structured list (JSON, table, or plain text — Claude will parse any clear format). Each task needs:
+You can provide input at **any level of detail**. The Planner will ask for anything that's missing.
+
+### Minimum (barebones) input
+```
+IPT10 — Lab 4
+```
+The Planner will prompt you for task type, estimated hours, deadline, and availability.
+
+### Full structured input (recommended for speed)
 
 | Field | Example | Notes |
 |---|---|---|
@@ -75,17 +87,19 @@ Study window: 08:00 – 22:00
 ## Pipeline Overview
 
 ```
-Your task list
-      ↓
-  [Planner]  — validates, assigns HIGH / MEDIUM / LOW priority, sorts by urgency
-      ↓
- [Scheduler] — fills time slots day by day, flags at-risk tasks
-      ↓
-  [Reviewer] — checks for overlaps, hour totals, deadlines, subject correctness
-      ↓
-  Your approval
-      ↓
-  Final outputs: implementation.md + study calendar
+Your input (barebones or full)
+        ↓
+   [Planner]  — clarifies missing fields, validates, assigns priorities
+        ↓
+   implementation.md  ← student reviews and approves this
+        ↓
+  ⛔ APPROVAL GATE — pipeline pauses here until you say "approve plan"
+        ↓
+  [Scheduler] — fills time slots, produces dark-mode PDF-ready calendar
+        ↓
+  [Reviewer]  — 5 quality checks; loops back to Scheduler on fail (max 3×)
+        ↓
+  Your final approval → Plan finalized
 ```
 
 ### Priority thresholds (Planner)
@@ -98,6 +112,19 @@ Your task list
 | **Overdue** | Past due and not completed → always High |
 
 To change these thresholds, tell Claude the new values at the start of your session.
+
+---
+
+### Scheduler Output Format
+
+The Scheduler produces a **dark-mode, PDF-ready document** with two sections:
+
+1. **Monthly Calendar View** — a grid (Sun–Sat) showing each day's study tasks with priority color labels (`[HIGH]` · `[MED]` · `[LOW]`) and subject badges
+2. **Task List by Priority** — a table grouped into High, Medium, Low, and Completed sections
+
+> The task list does **not** include an Actions column — the output is a static, print-to-PDF document.
+
+---
 
 ### Revision logic (Orchestrator)
 
