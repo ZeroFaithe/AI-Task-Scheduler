@@ -1,3 +1,4 @@
+---
 # Orchestrator Skill — AI Academic Task Planner
 
 ## Purpose

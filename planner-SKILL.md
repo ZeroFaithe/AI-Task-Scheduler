@@ -1,3 +1,4 @@
+---
 # Planner Skill — AI Academic Task Planner
 
 ## Purpose

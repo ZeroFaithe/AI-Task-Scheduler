@@ -1,3 +1,4 @@
+---
 # Scheduler Skill — AI Academic Task Planner
 
 ## Purpose
