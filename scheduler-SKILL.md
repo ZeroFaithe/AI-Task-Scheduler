@@ -1,4 +1,8 @@
 ---
+name: scheduler
+description: Schedules prioritized academic tasks into concrete dated study time slots within student availability limits, handling multi-day splits and identifying at-risk or overdue tasks.
+---
+
 # Scheduler Skill — AI Academic Task Planner
 
 ## Purpose

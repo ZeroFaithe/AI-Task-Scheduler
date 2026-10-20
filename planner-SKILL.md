@@ -1,4 +1,8 @@
 ---
+name: planner
+description: Validates student academic tasks and availability, computes derived fields (ID, urgency, priority, status), and produces a structured, prioritized plan grouped by subject.
+---
+
 # Planner Skill — AI Academic Task Planner
 
 ## Purpose

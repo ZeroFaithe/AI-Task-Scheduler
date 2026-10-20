@@ -1,4 +1,8 @@
 ---
+name: orchestrator
+description: Coordinates the full AI Academic Task Planner pipeline by running Planner, Scheduler, and Reviewer in sequence, enforcing revision limits, handling student review edits, and managing final approval.
+---
+
 # Orchestrator Skill — AI Academic Task Planner
 
 ## Purpose

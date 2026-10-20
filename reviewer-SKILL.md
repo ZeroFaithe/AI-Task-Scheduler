@@ -1,4 +1,8 @@
 ---
+name: reviewer
+description: Validates study schedules against quality checks (conflicts, daily limits, deadlines, subject assignment, hour totals), applies review edits, and generates final implementation and calendar outputs upon approval.
+---
+
 # Reviewer Skill — AI Academic Task Planner
 
 ## Purpose
