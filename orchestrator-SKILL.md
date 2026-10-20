@@ -55,20 +55,28 @@ The Planner will:
 **If the Planner reports validation errors:** show them exactly as reported (task number, field, problem). **Stop the pipeline** until the student corrects the errors.
 
 **If the Planner produces `implementation.md` successfully:**
-- Show the full `implementation.md` to the student
+- The Planner outputs the full `implementation.md` file content as a copyable code block
+- The file includes a **Student Review section** at the bottom for the student to fill in
 - **Stop here.** Do not run the Scheduler yet.
-- Ask: "Does this task plan look correct? Say **'approve plan'** to continue to scheduling, or tell me what you'd like to change."
 
 ---
 
-## Step 3 — Planner Approval Gate
+## Step 3 — Planner Approval Gate (File Upload)
 
-Wait for the student to explicitly approve the `implementation.md`.
+The pipeline pauses here. The student must:
+1. Copy the `implementation.md` content output by the Planner and save it as a real file
+2. Fill in the **Student Review** section at the bottom of the file:
+   - Set `Status` to `APPROVED` or `CHANGES NEEDED`
+   - Optionally add comments or change requests
+3. Upload the completed file back into the conversation
 
-**Approval triggers**: "approve plan", "looks good", "yes", "confirmed", "proceed", or similar.
+**When the student uploads the annotated `implementation.md`:**
+- Pass the uploaded file to the **Planner skill** to read and interpret the Student Review section.
+- If `Status: APPROVED` with no outstanding changes → proceed to Step 4 (Scheduler).
+- If `Status: CHANGES NEEDED` or comments are present → Planner applies changes, regenerates `implementation.md`, and the student must review again.
+- If the Status field is absent or ambiguous → ask the student to clarify before proceeding.
 
-- If the student requests changes to task fields: pass the change back to the **Planner skill** for validation and re-generation of `implementation.md`. Show the updated document and wait again.
-- Do **not** proceed to the Scheduler until the student explicitly approves.
+**Do not proceed to the Scheduler until the Planner confirms the plan is approved.**
 
 ---
 

@@ -113,7 +113,7 @@ Group tasks by `subject_code`. Groups are ordered by the urgency of their most u
 
 ## Step 4 — Produce `implementation.md`
 
-Generate a markdown document called `implementation.md` and present it to the student in full. It must contain these sections:
+Output the full text of `implementation.md` as a fenced markdown code block so the student can copy it and save it as a real file named `implementation.md`. The file must contain these sections:
 
 ### 1. Validation
 State "All tasks valid." or list every validation error found.
@@ -138,19 +138,55 @@ Study window: HH:MM – HH:MM
 ### 5. Summary
 A brief paragraph summarising: total tasks, total estimated hours, date range (earliest to latest deadline), and any overdue or high-priority items.
 
+### 6. Student Review Section
+Append this section verbatim at the bottom of the file — this is the section the student fills in:
+
+```
+---
+## 📝 Student Review
+
+**Status** (fill in one): APPROVED / CHANGES NEEDED
+
+**Comments / change requests:**
+(Write your changes here, or leave blank if approving)
+
+Examples:
+- Change IPT10 Lab 4 est_hours from 2.5 to 3
+- Change ENG20 Essay Draft deadline to 2026-11-10
+- Mark IPT10 Midterm Quiz as completed
+```
+
 ---
 
-## Step 5 — Wait for Student Approval
+## Step 5 — Instruct the Student to Review the File
 
-After presenting `implementation.md`, **stop the pipeline here**.
+After outputting the `implementation.md` code block, tell the student:
 
-Ask the student:
-> "Does this task plan look correct? Say **'approve plan'** to continue to scheduling, or tell me what you'd like to change."
+> **Next steps:**
+> 1. Copy the text above and save it as `implementation.md` on your computer.
+> 2. Open the file and fill in the **Student Review** section at the bottom:
+>    - Set **Status** to `APPROVED` if everything looks correct, or `CHANGES NEEDED` if you want edits.
+>    - Write any change requests in the **Comments** area.
+> 3. Upload the completed `implementation.md` file back here.
+>
+> I will read your file and either proceed to scheduling or apply your requested changes.
 
-- If the student requests changes: apply them (validating as in Step 1), regenerate `implementation.md`, and show it again. Wait for approval again.
-- If the student approves: signal to the Orchestrator that the Planner stage is complete and the Scheduler may now run.
+**Stop here. Do not run the Scheduler.** Wait for the student to upload the annotated `implementation.md`.
 
-**Do not hand off to the Scheduler until the student explicitly approves.**
+---
+
+## Step 6 — Read the Returned File
+
+When the student uploads the annotated `implementation.md`:
+
+1. **Read the Student Review section** at the bottom of the file.
+2. Check the **Status** field:
+   - `APPROVED` with no comments (or only blank comments) → signal to the Orchestrator that the Planner stage is complete and the Scheduler may now run.
+   - `APPROVED` with comments → treat comments as change requests, apply them (re-validating as in Step 1), regenerate `implementation.md` with a new Student Review section, and ask the student to review again.
+   - `CHANGES NEEDED` → parse each comment as a task field change request, validate and apply it, regenerate `implementation.md`, and ask the student to review again.
+3. If the Status field is missing or unrecognisable, ask the student to clarify rather than assuming approval.
+
+**Do not proceed to the Scheduler until the Status is `APPROVED` with no outstanding change requests.**
 
 ---
 
@@ -162,4 +198,6 @@ Ask the student:
 - Never ask the student for derived fields (`id`, `priority`, `status`, `days_until_deadline`).
 - Status `completed` or `in_progress` only comes from what the student explicitly told you.
 - Report validation errors word-for-word and stop — do not attempt to fix them.
-- **Always stop after presenting `implementation.md`** — do not proceed to scheduling without explicit student approval.
+- **Always output `implementation.md` as a copyable code block** with the Student Review section appended — never skip it.
+- **Stop after Step 5.** Do not proceed to the Scheduler until the student uploads the annotated file and the Status is `APPROVED`.
+- Never read approval from a chat message alone — the gate is the uploaded, annotated `implementation.md` file.
