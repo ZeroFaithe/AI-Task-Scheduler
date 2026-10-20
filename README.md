@@ -116,15 +116,3 @@ After seeing the review result, you can ask Claude to change any task field:
 > "Mark Midterm Quiz as completed."
 
 Claude validates the change, applies it, and reruns the full pipeline to show you what changed.
-
----
-
-## Differences from the Claude Code Version
-
-| Feature | Claude Code | Base Claude (these files) |
-|---|---|---|
-| Script execution | Python scripts run automatically | Claude reasons through the logic manually |
-| File I/O | Reads/writes `data/*.json` | Structured text output in the chat |
-| Subagents | Separate agents per skill | One Claude session, skills uploaded as files |
-| HTML output | `output/planner.html` generated | Text-based calendar summary |
-| Edit tracking | `data/changelog.json` via `apply_edit.py` | Claude tracks changes inline |
