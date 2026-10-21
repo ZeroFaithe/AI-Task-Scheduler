@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Validates study schedules against quality checks (conflicts, daily limits, deadlines, subject assignment, hour totals), applies review edits, and generates final implementation and calendar outputs upon approval.
+description: Reviews proposed study schedules, validates quality checks, handles task edits, and finalizes the plan after explicit student approval in chat. The final deliverable is the study schedule PDF; no implementation.md approval file is required.
 ---
 
 # Reviewer Skill — AI Academic Task Planner
@@ -117,14 +117,29 @@ If valid, apply the change and:
 
 ## Phase 3: On Student Approval Only
 
-The student must explicitly say something like "approve", "looks good", "confirmed", or "yes" to trigger this phase.
+The student must explicitly approve the reviewed schedule in chat using a response such as "approve", "looks good", "confirmed", or "yes".
 
-**Never run this phase if:**
+Never finalize if:
 - The review verdict is `fail`
-- The student has not yet seen the schedule
-- The student has not explicitly approved
+- The student has not seen the proposed schedule
+- The student has not explicitly approved it
 
-On approval, produce the following outputs:
+On approval, finalize the plan using the approved schedule and produce the following output.
+
+### Final Output: `study_schedule.pdf`
+
+Delivering the PDF is mandatory. Do not substitute a text summary if the PDF cannot be confirmed.
+
+The Scheduler should already have generated `study_schedule.pdf`. The Reviewer must:
+
+1. Confirm the PDF exists at the path reported by the Scheduler, if file verification is available.
+2. If confirmed, provide the student with the PDF path or an accessible file link.
+3. If the PDF is missing or cannot be verified, state this explicitly and ask the Orchestrator to rerun the Scheduler.
+4. Confirm that the review passed or passed with warnings and disclose any remaining at-risk tasks.
+
+Do not generate, require, or request an `implementation.md` file as an approval prerequisite or final deliverable.
+
+Once the approved schedule PDF is confirmed, state that the plan is finalized.
 
 ### Output 1: `implementation.md`
 Write a markdown document with these sections:
@@ -149,7 +164,8 @@ Confirm both outputs are complete, then say: "🎉 Plan approved and finalized."
 
 ## Rules
 
-- **Never** produce `implementation.md` or deliver the PDF before explicit student approval.
+- **Never** finalize or deliver the approved schedule before explicit student approval in chat.
+- **Never** require `implementation.md` to approve or finalize the plan.
 - **Never** patch the schedule directly — send issues back to the Orchestrator for the Scheduler to fix.
 - **Never** edit task fields except through the validated edit process in Phase 2, and only on the student's explicit request.
 - At-risk warnings are **not** issues — present them to the student but do not loop back for revision because of them.

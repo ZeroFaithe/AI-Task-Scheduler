@@ -1,6 +1,6 @@
 ---
 name: planner
-description: Accepts student task input (barebones or fully structured), pre-fills a copy-pasteable task template with whatever is known and marks unknowns as [missing], and waits for the student to paste it back completed before scheduling begins.
+description: Accepts natural-language student task input, asks concise follow-up questions only for essential missing information, validates and prioritizes tasks, and passes the structured plan directly to the Orchestrator for scheduling without requiring copy-paste templates or implementation.md uploads.
 ---
 
 # Planner Skill — AI Academic Task Planner
@@ -32,36 +32,49 @@ Always use the **real current date**. Never hardcode one.
 
 ## Input Format
 
-### Minimum required (barebones input)
-The student may provide as little as:
-- A subject code (e.g., `IPT10`)
-- A task name or description (e.g., "Lab 4" or "finish the circuit diagram")
+### Student Input
 
-If any required fields are missing, **ask the student for them one group at a time** before proceeding. Do not reject barebones input; clarify it.
+Accept tasks in natural language, structured lists, or a mixture of both.
 
-### Full task fields (needed before planning)
+For example:
+- "I have an IPT10 lab due Friday, probably takes 2 hours."
+- "CCNA quiz on October 28, estimate 1.5 hours."
+- "I need to finish my database assignment and prepare for a presentation next week."
+
+Extract all task details and availability the student has already provided. Do not ask the student to repeat known information.
+
+### Required Task Fields
+
 Each task must ultimately have:
 
 | Field | Notes |
 |---|---|
 | `subject_code` | e.g. `IPT10` |
-| `title` | short unique name per subject |
-| `task` | what needs to be done |
-| `description` | one of: `assignment`, `quiz`, `presentation`, `lab` |
-| `est_hours` | number, must be a multiple of 0.25 |
-| `deadline` | `YYYY-MM-DD` format |
+| `title` | Short task name |
+| `task` | What needs to be done |
+| `description` | `assignment`, `quiz`, `presentation`, or `lab` |
+| `est_hours` | Positive number in increments of 0.25 hours |
+| `deadline` | Real calendar date in `YYYY-MM-DD` format |
 
-### Availability (required for scheduling)
-Also ask for `availability` if not provided:
-- `weekday_hours` — hours available per day (mon, tue, wed, thu, fri, sat, sun)
-- `earliest_start` — e.g. `08:00`
-- `latest_end` — e.g. `22:00`
+### Required Availability
 
-An optional `student_name` may appear at the top level.
+Before scheduling, obtain:
+- `weekday_hours` — available study hours for Monday through Sunday
+- `earliest_start` — earliest permitted study start time (`HH:MM`)
+- `latest_end` — latest permitted study end time (`HH:MM`)
 
-### Clarification strategy
-Do **not** ask follow-up questions. Instead, go straight to Step 4 — output the pre-filled template with `[missing]` for every unknown field. Let the student fill it in and paste it back in one shot.
+An optional `student_name` may be included but is not required.
 
+### Clarification Strategy
+
+Do not generate copy-paste templates or ask the student to complete a form.
+
+1. Extract every known task field and availability value from the conversation.
+2. If essential information is missing, ask concise conversational questions about the missing information only. Group related questions when practical.
+3. Allow the student to provide details naturally over multiple messages.
+4. Do not ask for `id`, `priority`, `status`, or `days_until_deadline`; these are derived.
+5. Do not invent deadlines, estimated hours, or availability.
+6. Once all required information is available, validate the tasks and availability before handing them off.
 ---
 
 ## Step 1 — Validate
@@ -73,6 +86,14 @@ Check every task for these issues. If any are found, **stop and report them exac
 - `deadline` must be a real calendar date in `YYYY-MM-DD` format
 - `subject_code` and `title` must not be empty
 - All six fields above must be present
+
+Validate availability before handoff:
+- All seven days must have a defined, non-negative number of available study hours.
+- `earliest_start` and `latest_end` must be valid `HH:MM` times.
+- `latest_end` must be later than `earliest_start`.
+- If availability is incomplete or invalid, ask the student to clarify or correct it before proceeding.
+
+If validation fails, explain the specific issue conversationally and ask for the correction. Do not generate a template or silently modify the student's input.
 
 Validation error format:
 > Task #N ("Title"), field 'field_name': description of problem.
@@ -108,69 +129,59 @@ Group tasks by `subject_code`. Groups are ordered by the urgency of their most u
 
 ---
 
-## Step 4 — Output the Copy-Pasteable Template
+## Step 4 — Validate and Prepare the Plan
 
-> **This step runs immediately on any student input — even a single word. Do not ask questions first. Output the template, then wait.**
+Once all required task information and availability have been collected:
 
-Produce the template as a fenced code block (so it is easy to copy). Pre-fill every field you already know from the student's message. For every field that is still unknown, write `[missing]` exactly.
+1. Run Step 1 to validate task fields and availability.
+2. If anything is missing or invalid, ask the student conversationally for the specific information or correction required. Retain all previously supplied information.
+3. Once validation passes, run Steps 2 and 3 to derive fields and sort tasks.
+4. Prepare the validated structured task list and availability for the Orchestrator.
 
-Template format:
+Do not output a copy-paste template. Do not ask the student to paste their information back into the chat.
 
-```
-Student: [missing: your name]
+## Step 5 — Present the Proposed Plan
 
-Tasks:
-[N]. [subject_code] | [title] | [missing: task description] | [missing: assignment/quiz/presentation/lab] | [missing: duration]h | due [missing: YYYY-MM-DD]
+Present a concise summary in chat containing:
+- Tasks and their deadlines
+- Estimated hours
+- Derived priorities and statuses
+- Total estimated study hours
+- The availability that will be used for scheduling
 
-Availability:
-Mon [missing: hours]h, Tue [missing: hours]h, Wed [missing: hours]h, Thu [missing: hours]h, Fri [missing: hours]h, Sat [missing: hours]h, Sun [missing: hours]h
-Study window: [missing: HH:MM] – [missing: HH:MM]
-```
+Ask the student to confirm that the task information is correct before scheduling begins.
 
-**Rules for filling the template:**
-- Each task occupies exactly one numbered line in the `Tasks:` block using the pipe-separated format above.
-- Every unknown field uses a labelled placeholder: `[missing: <field name>]`. The label inside tells the student exactly what to type. Do NOT use a bare `[missing]` — always include the label.
-- Pre-fill any field the student already provided. Only use `[missing: ...]` for fields that are genuinely unknown.
-- If a field value was given but is potentially invalid (e.g., deadline seems wrong), still pre-fill it — validation happens in Step 1 after the student returns the template.
-- For `[missing: assignment/quiz/presentation/lab]`, keep that exact label so the student can see the valid options and simply replace the whole token with one of them.
-- Never include derived fields (`id`, `priority`, `status`, `days_until_deadline`) in the template — the student never fills these in.
-- If availability was partially provided, fill the known day-hours and use `[missing: hours]` only for the days that are still unknown.
+The student may approve the proposed plan or request corrections directly in chat.
 
-After the code block, write exactly:
-> **Fill in every `[missing]` field, then paste the completed text back here.**
+## Step 6 — Handoff to the Orchestrator
 
----
+When the student confirms the proposed task information:
 
-## Step 5 — Wait for the Completed Template
+1. Apply any explicitly requested corrections.
+2. Revalidate the affected fields.
+3. Recalculate derived fields and sort the tasks again if necessary.
+4. Pass the validated structured task list, availability, and current date to the Orchestrator directly.
+5. Signal that the plan is ready for scheduling.
 
-After outputting the template, **stop**. Do not proceed to validation or scheduling.
+Do not require the student to create, upload, or approve an `implementation.md` file.
 
-Wait for the student to paste the completed template back into the chat.
+Do not wait for a completed template. The validated information in the conversation is the source of truth.
 
----
-
-## Step 6 — Read the Returned Template
-
-When the student pastes back a completed template:
-
-1. **Check for remaining `[missing]` fields.** If any are still unfilled, output the template again with only those fields still marked `[missing]` and wait again. Do not proceed until all fields are filled.
-2. **Run Step 1 — Validate** on the completed data.
-   - If validation fails, report the exact errors and output a corrected template with only the invalid fields reset to `[missing]`. Wait for the student to fix them.
-   - If validation passes, run Steps 2 and 3, then confirm to the student: **"All tasks valid. Proceeding to scheduling."** and signal the Orchestrator.
-3. If the student makes a change request (e.g., "change est_hours to 3"), apply it in the template, re-validate, and output the updated template for one final confirmation before proceeding.
-
-**Do not proceed to the Scheduler until all fields are filled and validation passes.**
+If the student requests a change before handoff, apply it, validate it, and show the updated information in chat for confirmation.
 
 ---
 
 ## Rules
 
-- Never hardcode a date. Use today's real date.
-- Accept barebones input — never refuse or reject it. Output the template immediately with what you know and `[missing]` for the rest.
-- Never ask follow-up questions before outputting the template. The template IS the question.
-- Never edit task fields without explicit student instruction.
+- Never hardcode a date. Use the real current date.
+- Accept natural-language, barebones, and structured task input.
+- Ask concise follow-up questions only for essential missing or invalid information.
+- Never generate copy-paste templates or require the student to paste completed templates back into chat.
+- Never invent task details, deadlines, estimated hours, or availability.
 - Never ask the student for derived fields (`id`, `priority`, `status`, `days_until_deadline`).
-- Status `completed` or `in_progress` only comes from what the student explicitly told you.
-- Report validation errors exactly — do not attempt to fix them silently.
-- **Never proceed to the Scheduler until all `[missing]` fields are filled and validation passes.**
-- If the student pastes back a template that still has `[missing]` fields, re-output the template with only those fields remaining and wait again.
+- Status `completed` or `in_progress` only comes from explicit student input.
+- Never silently change task fields.
+- Validate all required task fields and availability before handoff.
+- Present the proposed task information for confirmation before scheduling.
+- Pass validated data directly to the Orchestrator after confirmation.
+- Never require `implementation.md` or a file-based `APPROVED` status.

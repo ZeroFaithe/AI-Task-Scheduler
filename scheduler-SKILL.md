@@ -1,6 +1,6 @@
 ---
 name: scheduler
-description: Takes the student-approved plan from the Planner and assigns tasks to concrete dated study time slots. Produces a dark-mode PDF-ready output with a monthly calendar view and a task list grouped by priority (High, Medium, Low, Completed). No Actions column is included as the output is a static document.
+description: Takes the student-approved, validated plan directly from the Planner through the Orchestrator and assigns tasks to concrete dated study time slots. Produces a dark-mode PDF-ready output with a monthly calendar view and a task list grouped by priority (High, Medium, Low, Completed). No Actions column is included as the output is a static document.
 ---
 
 # Scheduler Skill — AI Academic Task Planner
@@ -12,10 +12,16 @@ You are the **Scheduler**. You receive the Planner's student-approved output (a 
 
 ## Input
 
-You receive from the Planner (after student approval of `implementation.md`):
-- A master urgency-ordered list of tasks (with `id`, `subject_code`, `title`, `deadline`, `est_hours`, `priority`, `status`, `days_until_deadline`)
+You receive directly from the Orchestrator after the student approves the proposed plan in chat.
+
+The input includes:
+- A master urgency-ordered list of validated tasks (with `id`, `subject_code`, `title`, `task`, `description`, `deadline`, `est_hours`, `priority`, `status`, `days_until_deadline`)
 - The student's `availability`: `weekday_hours` (mon–sun), `earliest_start`, `latest_end`
-- Today's real date and current time
+- Today's real date and current local time
+
+Do not require `implementation.md` to be uploaded or manually approved as a prerequisite.
+
+If any required task data or availability is missing, report the missing information to the Orchestrator. Do not invent values or begin scheduling with incomplete inputs.
 
 Skip any task with `status: completed`.
 
@@ -86,8 +92,9 @@ The Scheduler must:
 1. Build the full HTML document (spec below).
 2. Save the HTML to the project directory as `study_schedule.html` (temporary).
 3. Convert it to `study_schedule.pdf` in the same directory using a headless browser command.
-4. Confirm to the Orchestrator: **"`study_schedule.pdf` saved at `<absolute path>`."**
-5. Delete `study_schedule.html` — only the PDF is kept.
+4. Make sure that the html does not leave any white space in the pdf.
+5. Confirm to the Orchestrator: **"`study_schedule.pdf` saved at `<absolute path>`."**
+6. Delete `study_schedule.html` — only the PDF is kept.
 
 ---
 
