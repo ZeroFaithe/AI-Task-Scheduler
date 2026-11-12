@@ -10,7 +10,7 @@ These are standalone skill files for use with **base Claude** (claude.ai) via th
 |---|---|
 | `orchestrator-SKILL.md` | Coordinates the full pipeline: Planner → (approval gate) → Scheduler → Reviewer |
 | `planner-SKILL.md` | Clarifies missing fields, validates tasks, assigns priorities, produces `implementation.md` for student approval |
-| `scheduler-SKILL.md` | Places tasks into time slots and produces a **dark-mode PDF-ready** calendar + priority task list |
+| `scheduler-SKILL.md` | Places tasks into time slots (proposal only), then renders the **dark-mode PDF** calendar + priority task list after you approve |
 | `reviewer-SKILL.md` | Runs 5 quality checks on the schedule, handles review edits, generates final outputs on approval |
 
 ---
@@ -27,8 +27,9 @@ These are standalone skill files for use with **base Claude** (claude.ai) via th
 Claude will:
 1. Ask you to clarify any missing fields (task type, estimated hours, deadline, availability)
 2. Show you an `implementation.md` plan and **wait for your approval** before scheduling
-3. Once approved, build the schedule and present a **dark-mode PDF-ready calendar** with a task list by priority
-4. Run the Reviewer checks and ask for your final approval
+3. Once approved, build the proposed schedule (no PDF yet)
+4. Run the Reviewer checks and show you the results
+5. Wait for your explicit approval, then generate the **dark-mode PDF** calendar with a task list by priority
 
 ### Option B — Individual skills
 
@@ -95,11 +96,15 @@ Your input (barebones or full)
         ↓
   ⛔ APPROVAL GATE — pipeline pauses here until you say "approve plan"
         ↓
-  [Scheduler] — fills time slots, produces dark-mode PDF-ready calendar
+  [Scheduler] — fills time slots (proposal only, no PDF)
         ↓
   [Reviewer]  — 5 quality checks; loops back to Scheduler on fail (max 3×)
         ↓
-  Your final approval → Plan finalized
+  ⛔ APPROVAL GATE — you review the schedule and say "approve"
+        ↓
+  [Scheduler] — renders the dark-mode PDF from the approved schedule
+        ↓
+  Plan finalized, PDF delivered
 ```
 
 ### Priority thresholds (Planner)
@@ -117,7 +122,7 @@ To change these thresholds, tell Claude the new values at the start of your sess
 
 ### Scheduler Output Format
 
-The Scheduler produces a **dark-mode, PDF-ready document** with two sections:
+After you approve the reviewed schedule, the Scheduler produces a **dark-mode PDF** with two sections:
 
 1. **Monthly Calendar View** — a grid (Sun–Sat) showing each day's study tasks with priority color labels (`[HIGH]` · `[MED]` · `[LOW]`) and subject badges
 2. **Task List by Priority** — a table grouped into High, Medium, Low, and Completed sections
