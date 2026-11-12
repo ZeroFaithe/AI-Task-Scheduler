@@ -22,17 +22,19 @@ Student Input (natural language or structured tasks)
         ↓
    GATE: Student confirms task information in chat
         ↓
-   [Scheduler] — schedules tasks and generates study_schedule.pdf
+   [Scheduler, Mode 1] — proposes the schedule (NO PDF yet)
         ↓
    [Reviewer] — checks schedule quality
         ↓
-   FAIL? → Scheduler revision → Reviewer (maximum 3 rounds)
+   FAIL? → Scheduler revision (still no PDF) → Reviewer (maximum 3 rounds)
         ↓
    Student reviews schedule and warnings in chat
         ↓
    GATE: Student explicitly approves the schedule in chat
         ↓
-   Finalize and provide the confirmed PDF
+   [Scheduler, Mode 2] — renders study_schedule.pdf from the approved schedule
+        ↓
+   Verify and provide the PDF
 ```
 
 ---
@@ -91,12 +93,16 @@ Never require the student to create, save, upload, or approve implementation.md.
 
 ## Step 4 — Run the Scheduler
 
-Once the student confirms the validated plan in chat, activate the Scheduler skill with the Planner's structured output, including:
+Once the student confirms the validated plan in chat, activate the Scheduler skill in **Mode 1 (Propose)** with the Planner's structured output, including:
 - Validated task list with derived fields
 - Student availability
 - Today's real date and current local time
 
-Pass this information directly between skills. Do not require an intermediate file or another approval gate.
+Pass this information directly between skills. Do not require an intermediate file.
+
+When invoking the Scheduler here, state explicitly: "Run Mode 1 (Propose) only — do not generate any PDF or HTML." Only after the student's final approval, invoke it with: "Student approved the reviewed schedule — run Mode 2."
+
+**The Scheduler must NOT generate `study_schedule.pdf` (or its HTML) at this stage.** It returns the proposed schedule as structured text only. If a PDF appears before the student approves, treat it as an error and do not present it.
 
 ---
 
@@ -155,11 +161,12 @@ Accept clear approval such as "approve", "looks good", "yes", or "confirmed", pr
 Before finalizing:
 - Confirm the Reviewer verdict is pass or pass_with_warnings.
 - Confirm the student has seen the schedule and any at-risk warnings.
-- Confirm the Scheduler's PDF exists at the reported path, if file verification is available.
 
-If the PDF is missing or cannot be verified, disclose that clearly and request that the Scheduler rerun. Do not claim the PDF is ready without confirmation.
+Only now, after explicit approval, activate the Scheduler in **Mode 2 (Render PDF)** with the approved schedule, unchanged. Then confirm the PDF exists at the path the Scheduler reports, if file verification is available.
 
-Once approval and PDF availability are confirmed:
+If the PDF is missing or cannot be verified, disclose that clearly and request that the Scheduler rerun Mode 2. Do not claim the PDF is ready without confirmation.
+
+Once the PDF is confirmed:
 - Provide the final study_schedule.pdf through an accessible file link or verified path.
 - Summarize any outstanding risks or unavoidable shortfalls.
 - State that the plan is finalized.
@@ -181,6 +188,7 @@ Once approval and PDF availability are confirmed:
 - Obtain confirmation of the proposed task information before scheduling and explicit approval of the final reviewed schedule before finalization.
 - The only mandatory final file deliverable is study_schedule.pdf.
 - Never claim that a PDF exists or is accessible unless it has been verified.
+- Never generate or deliver the PDF before the Reviewer has checked the schedule and the student has explicitly approved it.
 
 ---
 
@@ -189,8 +197,8 @@ Once approval and PDF availability are confirmed:
 | Skill | Reads | Key Output | Gate |
 |---|---|---|---|
 | **Planner** | Student input in chat | Validated, prioritized task data | Student confirms task information in chat |
-| **Scheduler** | Confirmed task data and availability | Scheduled time slots and study_schedule.pdf | Runs after task confirmation |
-| **Reviewer** | Proposed schedule | Quality checks, issues, and warnings | Student approves final reviewed schedule in chat |
+| **Scheduler** | Confirmed task data and availability | Mode 1: proposed time slots (no PDF). Mode 2: study_schedule.pdf | Mode 1 after task confirmation; Mode 2 only after final student approval |
+| **Reviewer** | Proposed schedule | Quality checks, issues, and warnings | Student approves final reviewed schedule in chat, which releases the PDF |
 
 ---
 
